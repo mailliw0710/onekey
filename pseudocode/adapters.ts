@@ -55,7 +55,7 @@ class BridgeAdapter implements ChannelAdapter {
     return {
       id: this.id, kinds: ["cross_chain", "same_chain"], // 如 LI.FI 两者皆可
       enabled: this.cfg.enabled, executeKind: "unsigned_tx",
-      supportsClientOrderRef: false, defaultSlippageBps: 50, softTimeoutMs: 1800,
+      supportsClientOrderRef: false, defaultSlippageBps: 50, softTimeoutMs: 4000, // 按桥的实测 P95 配，桥本来就慢
       supportsChain: (c) => this.cfg.chains.includes(c),
       supportsPair: () => true,
     };

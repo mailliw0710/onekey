@@ -21,9 +21,12 @@ interface AggregatorDeps {
   metrics: Metrics;
 }
 
-const ROUND_DEADLINE_MS = 2500; // 大于 2s SLO，给首个报价留余量
-const LATE_GRACE_MS = 1500;
-const ENABLE_LATE_QUOTES = true; // 关掉则迟到报价本轮不展示，由客户端下一轮捞回
+// 首个报价由流式保证，与任何渠道超时无关；本轮截止只决定“等多久算一轮结束”。
+// 所以截止按最慢候选渠道的预算来定（每渠道超时按各自实测延迟配，见 adapters），
+// 让慢但有效的渠道（如桥，P95 ~4s）也来得及展示，而不是被压短的全局超时砍掉。
+const ROUND_MARGIN_MS = 300;
+const LATE_GRACE_MS = 1500; // 超预算仍迟到的报价，宽限期内补推
+const ENABLE_LATE_QUOTES = true;
 
 async function* streamQuotes(
   req: QuoteRequest,
@@ -60,7 +63,9 @@ async function* streamQuotes(
     );
   }
 
-  void delay(ROUND_DEADLINE_MS).then(() => inbox.push(DONE));
+  const roundDeadlineMs =
+    Math.max(...channels.map((c) => c.capabilities().softTimeoutMs)) + ROUND_MARGIN_MS;
+  void delay(roundDeadlineMs).then(() => inbox.push(DONE));
 
   while (true) {
     const item = await inbox.take();
